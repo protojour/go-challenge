@@ -1,0 +1,11 @@
+### Send Input
+POST http://localhost:5000/hash
+Content-Type: application/json
+
+{
+    "seeds": [
+        "abc",
+        "def",
+        "xyz"
+    ]
+}

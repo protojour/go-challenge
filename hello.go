@@ -1,7 +1,12 @@
 package main
 
-import "fmt"
+import (
+	"net/http"
+
+	"example.com/m/api"
+)
 
 func main() {
-	fmt.Println("Hello, World!")
+	srv := api.NewServer()
+	http.ListenAndServe(":5000", srv)
 }
