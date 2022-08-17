@@ -9,3 +9,6 @@ Content-Type: application/json
         "xyz"
     ]
 }
+
+### Send Input
+GET http://localhost:5000/hash
