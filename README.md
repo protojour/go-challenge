@@ -1,7 +1,7 @@
 Go challenge
 ============
 
-Skriv en http-server i Go ved hjelp av standardbiblioteket. 
+Skriv en http-server i Go ved hjelp av [standardbiblioteket](https://pkg.go.dev/std).
 
 Serveren skal motta og validere JSON på formen
 
@@ -15,9 +15,9 @@ Serveren skal motta og validere JSON på formen
 }
 ```
 
-(på f.eks. `/hash`) og deretter prosessere hver seed-verdi parallelt i en _goroutine_ som kalkulerer en SHA256 hash (`crypto/sha256`) av seed-strengen. Prosesseringsrutinen skal legge resultatet, på en _channel_.
+(på f.eks. `/hash`). `"seeds"` og hver seed-verdi kan ha vilkårlig lengde. Handler skal deretter prosessere hver seed-verdi parallelt i en _goroutine_ som kalkulerer en [SHA256 hash](https://pkg.go.dev/crypto/sha256) av seed-strengen. Prosesseringsrutinen skal legge resultatet på en _channel_.
 
-Bruk for eksempel en _WaitGroup_ for prosesseringsrutinen. Når alle seeds er prosessert, skal resultatet returneres som JSON på formen
+Bruk for eksempel en [WaitGroup](https://pkg.go.dev/sync#WaitGroup) for prosesseringsrutinen. Når alle seeds er prosessert, skal resultatet returneres som JSON på formen
 
 ```json
 {
@@ -37,7 +37,7 @@ Ta i bruk relevante headere, som `Content-Type`.
 
 Serveren skal logge tidsstemplede hendelser til `stdout` og feil til `stderr`.
 
-Koden skal ha tester (bruk Go sitt eget testrammeverk), og alle tester skal passere. Koden skal selvsagt også kompilere og være kjørbar.
+Koden skal ha [tester](https://pkg.go.dev/testing), og alle tester skal passere. Koden skal selvsagt også kompilere og være kjørbar.
 
 Du skal bruke Git for versjonkontroll, og vi foretrekker om du gjør flere commits i løpet av utviklingen, så vi kan få et inntrykk av hvordan du arbeider. Skriv gode commit-meldinger på engelsk. Husk at det ikke er noen skam å snu, eller å endre koden underveis.
 
