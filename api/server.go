@@ -4,9 +4,9 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"sync"
 
@@ -34,14 +34,14 @@ func NewServer() *Server {
 		Router:       mux.NewRouter(),
 		HashClusters: []HashCluster{},
 	}
-	s.routes()
+	s.Routes()
 	return s
 }
 
 // setts up where the client finds the services and what type of http request they are
-func (s *Server) routes() {
-	s.HandleFunc("/hash", s.convertToHashes()).Methods("POST")
-	s.HandleFunc("/hash", s.listHashes()).Methods("GET")
+func (s *Server) Routes() {
+	s.HandleFunc("/hash", s.ConvertToHashes()).Methods("POST")
+	s.HandleFunc("/hash", s.ListHashes()).Methods("GET")
 }
 
 // a worker function used by the Waitgroup in convertToHashes() to convert
@@ -50,7 +50,7 @@ func (s *Server) routes() {
 // to pair the index of the seed with the correct index of the created hash.
 // this way it is possible to maintain the correct order of hashes in the final result.
 // the order is important to ensure that we know what hash the seed turned into.
-func hashingWorker(seed string, chnl chan [2]string, index int) {
+func HashWorker(seed string, chnl chan [2]string, index int) {
 	var res [2]string                              // used to write the result to the channel
 	var sum [32]byte = sha256.Sum256([]byte(seed)) // converting seed to sha256-hash
 	res[0] = strconv.Itoa(index)                   // converting index to string and adding it to res
@@ -60,8 +60,9 @@ func hashingWorker(seed string, chnl chan [2]string, index int) {
 
 // function used for prosessing the seeds and POSTING them to the
 // servers collection of HashClusters
-func (s *Server) convertToHashes() http.HandlerFunc {
+func (s *Server) ConvertToHashes() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		log.SetOutput(os.Stdout) // by default logging to stdout
 		log.Print("initiating conversion of seeds to sha256-hashes")
 		var sc SeedCluster
 		var hc HashCluster
@@ -73,11 +74,16 @@ func (s *Server) convertToHashes() http.HandlerFunc {
 		// thus defaulted to "nil" if the input uses a wrong format
 		if error := json.NewDecoder(r.Body).Decode(&sc); error != nil {
 			http.Error(w, error.Error(), http.StatusBadRequest)
+			log.SetOutput(os.Stderr)
+			log.Print(error.Error())
 			return
 		}
 		// checking if the input is invalid
 		if sc.Seeds == nil {
-			log.Print(errors.New("error: input uses an invalid format"))
+			err := "error: input uses an invalid format"
+			http.Error(w, err, http.StatusUnprocessableEntity)
+			log.SetOutput(os.Stderr)
+			log.Print(err)
 			return
 		}
 		log.Print("input accepted")
@@ -92,7 +98,7 @@ func (s *Server) convertToHashes() http.HandlerFunc {
 
 			go func() {
 				defer wg.Done()
-				go hashingWorker(sc.Seeds[index], channel, index)
+				go HashWorker(sc.Seeds[index], channel, index)
 				data := <-channel                 // reading from channel
 				ind, err := strconv.Atoi(data[0]) // converting index back to integer
 				if err != nil {
@@ -111,6 +117,8 @@ func (s *Server) convertToHashes() http.HandlerFunc {
 		w.Header().Set("Content-Type", "application/json")
 		if error := json.NewEncoder(w).Encode(hc); error != nil {
 			http.Error(w, error.Error(), http.StatusInternalServerError)
+			log.SetOutput(os.Stderr)
+			log.Print(error.Error())
 			return
 		}
 		log.Print("request completed")
@@ -118,12 +126,15 @@ func (s *Server) convertToHashes() http.HandlerFunc {
 }
 
 // function used for GETTING the HashClusters that has allready been processed
-func (s *Server) listHashes() http.HandlerFunc {
+func (s *Server) ListHashes() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		log.SetOutput(os.Stdout) // by default logging to stdout
 		log.Print("initiating listing of results from previous hashing requests")
 		w.Header().Set("Content-Type", "application/json")
 		if error := json.NewEncoder(w).Encode(s.HashClusters); error != nil {
 			http.Error(w, error.Error(), http.StatusInternalServerError)
+			log.SetOutput(os.Stderr)
+			log.Print(error.Error())
 			return
 		}
 		log.Print("request completed")
