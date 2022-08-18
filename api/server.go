@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"sync"
 
 	"github.com/gorilla/mux"
@@ -39,11 +40,12 @@ func (s *Server) routes() {
 	s.HandleFunc("/hash", s.listHashes()).Methods("GET")
 }
 
-func hashingWorker(str string, chnl chan string) {
+func hashingWorker(str string, chnl chan [2]string, index int) {
 	var sum [32]byte = sha256.Sum256([]byte(str))
-	st := hex.EncodeToString(sum[:])
-	fmt.Println(st)
-	chnl <- st
+	var res [2]string
+	res[0] = strconv.Itoa(index)
+	res[1] = hex.EncodeToString(sum[:])
+	chnl <- res
 }
 
 // function used for prosessing the seeds and POSTING them to the
@@ -53,7 +55,7 @@ func (s *Server) convertFromSeedsToHashes() http.HandlerFunc {
 		var sc SeedCluster
 		var hc HashCluster
 		var wg sync.WaitGroup
-		hash := make(chan string)
+		hash := make(chan [2]string)
 
 		// recieving request and checking for network errors
 		if error := json.NewDecoder(r.Body).Decode(&sc); error != nil {
@@ -75,10 +77,14 @@ func (s *Server) convertFromSeedsToHashes() http.HandlerFunc {
 
 			go func() {
 				defer wg.Done()
-				go hashingWorker(sc.Seeds[index], hash)
+				go hashingWorker(sc.Seeds[index], hash, index)
 				fmt.Println("inne")
 				data := <-hash
-				hc.Hashes[index] = data
+				num, error := strconv.Atoi(data[0])
+				if error != nil {
+					fmt.Println(error)
+				}
+				hc.Hashes[num] = data[1]
 				//TODO append data
 			}()
 		}
