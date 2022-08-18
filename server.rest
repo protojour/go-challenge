@@ -10,5 +10,71 @@ Content-Type: application/json
     ]
 }
 
-### Send Input
+### List results
 GET http://localhost:5000/hash
+
+### wrong format 1
+POST http://localhost:5000/hash
+Content-Type: application/json
+
+{
+    "": [
+        "abc",
+        "def",
+        "xyz"
+    ]
+}
+
+### wrong format 2
+POST http://localhost:5000/hash
+Content-Type: application/json
+
+{
+    "hashes": [
+        "abc",
+        "def",
+        "xyz"
+    ]
+}
+
+### wrong format 3
+POST http://localhost:5000/hash
+Content-Type: application/json
+
+{
+}
+
+### wrong format 4
+POST http://localhost:5000/hash
+Content-Type: application/json
+
+{
+    "seeds": [
+        "hashes": [
+            "def",
+            "xyz"
+        ]
+        "def",
+        "xyz"
+    ]
+}
+
+### strange format 1
+POST http://localhost:5000/hash
+Content-Type: application/json
+
+{
+    "seeds": []
+}
+
+### strange format 2
+POST http://localhost:5000/hash
+Content-Type: application/json
+
+{
+    "seeds": [
+        "",
+        "",
+        ""
+    ]
+}

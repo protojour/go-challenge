@@ -4,7 +4,8 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
+	"errors"
+	"log"
 	"net/http"
 	"strconv"
 	"sync"
@@ -12,6 +13,7 @@ import (
 	"github.com/gorilla/mux"
 )
 
+// struct definition of the json-objects and the server
 type SeedCluster struct {
 	Seeds []string `json:"seeds"`
 }
@@ -26,6 +28,7 @@ type Server struct {
 	HashClusters []HashCluster
 }
 
+// initialization function for the server used by main.go
 func NewServer() *Server {
 	s := &Server{
 		Router:       mux.NewRouter(),
@@ -35,38 +38,50 @@ func NewServer() *Server {
 	return s
 }
 
+// setts up where the client finds the services and what type of http request they are
 func (s *Server) routes() {
-	s.HandleFunc("/hash", s.convertFromSeedsToHashes()).Methods("POST")
+	s.HandleFunc("/hash", s.convertToHashes()).Methods("POST")
 	s.HandleFunc("/hash", s.listHashes()).Methods("GET")
 }
 
-func hashingWorker(str string, chnl chan [2]string, index int) {
-	var sum [32]byte = sha256.Sum256([]byte(str))
-	var res [2]string
-	res[0] = strconv.Itoa(index)
-	res[1] = hex.EncodeToString(sum[:])
-	chnl <- res
+// a worker function used by the Waitgroup in convertToHashes() to convert
+// an individual seed to a hash.
+// the channel provided (chnl) takes a lists of 2 strings so that it is possible
+// to pair the index of the seed with the correct index of the created hash.
+// this way it is possible to maintain the correct order of hashes in the final result.
+// the order is important to ensure that we know what hash the seed turned into.
+func hashingWorker(seed string, chnl chan [2]string, index int) {
+	var res [2]string                              // used to write the result to the channel
+	var sum [32]byte = sha256.Sum256([]byte(seed)) // converting seed to sha256-hash
+	res[0] = strconv.Itoa(index)                   // converting index to string and adding it to res
+	res[1] = hex.EncodeToString(sum[:])            // converting hash to hex-format and adding it to res
+	chnl <- res                                    // writing res to channel
 }
 
 // function used for prosessing the seeds and POSTING them to the
 // servers collection of HashClusters
-func (s *Server) convertFromSeedsToHashes() http.HandlerFunc {
+func (s *Server) convertToHashes() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		log.Print("initiating conversion of seeds to sha256-hashes")
 		var sc SeedCluster
 		var hc HashCluster
 		var wg sync.WaitGroup
-		hash := make(chan [2]string)
+		channel := make(chan [2]string) // list of two strings to be able to pair hash to the correct index
 
 		// recieving request and checking for network errors
+		// the request is recieved with a SeedCluster (sc) and is
+		// thus defaulted to "nil" if the input uses a wrong format
 		if error := json.NewDecoder(r.Body).Decode(&sc); error != nil {
 			http.Error(w, error.Error(), http.StatusBadRequest)
 			return
 		}
-		// checking if the data is invalid or in a wrong format
+		// checking if the input is invalid
 		if sc.Seeds == nil {
-			fmt.Println("Input has wrong format")
+			log.Print(errors.New("error: input uses an invalid format"))
 			return
 		}
+		log.Print("input accepted")
+		// initiating the list of hashes to have the same length as the list of seeds
 		hc.Hashes = make([]string, len(sc.Seeds))
 
 		// hashing every seed individually and concurrently using a waitGroup as a goroutine
@@ -77,26 +92,20 @@ func (s *Server) convertFromSeedsToHashes() http.HandlerFunc {
 
 			go func() {
 				defer wg.Done()
-				go hashingWorker(sc.Seeds[index], hash, index)
-				fmt.Println("inne")
-				data := <-hash
-				num, error := strconv.Atoi(data[0])
-				if error != nil {
-					fmt.Println(error)
+				go hashingWorker(sc.Seeds[index], channel, index)
+				data := <-channel                 // reading from channel
+				ind, err := strconv.Atoi(data[0]) // converting index back to integer
+				if err != nil {
+					log.Print(err)
+					return
 				}
-				hc.Hashes[num] = data[1]
-				//TODO append data
+				hc.Hashes[ind] = data[1] // adding hash to HashCluster
 			}()
 		}
 		wg.Wait()
-		fmt.Println("ute")
-		// TODO add seeds to a channel instead of manipulating the original data structure
-		// adding hashes to the HashCluster structure
-		fmt.Println("ute2")
+		log.Print("hashing completed")
 
-		fmt.Println("ute3")
-		//hc.Hashes = sc.Seeds
-		s.HashClusters = append(s.HashClusters, hc)
+		s.HashClusters = append(s.HashClusters, hc) // adding hashcluster to the servers list of results
 
 		// setting header expecting a json object
 		w.Header().Set("Content-Type", "application/json")
@@ -104,16 +113,19 @@ func (s *Server) convertFromSeedsToHashes() http.HandlerFunc {
 			http.Error(w, error.Error(), http.StatusInternalServerError)
 			return
 		}
+		log.Print("request completed")
 	}
 }
 
 // function used for GETTING the HashClusters that has allready been processed
 func (s *Server) listHashes() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		log.Print("initiating listing of results from previous hashing requests")
 		w.Header().Set("Content-Type", "application/json")
 		if error := json.NewEncoder(w).Encode(s.HashClusters); error != nil {
 			http.Error(w, error.Error(), http.StatusInternalServerError)
 			return
 		}
+		log.Print("request completed")
 	}
 }
