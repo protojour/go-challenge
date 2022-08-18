@@ -65,6 +65,7 @@ func (s *Server) convertFromSeedsToHashes() http.HandlerFunc {
 			fmt.Println("Input has wrong format")
 			return
 		}
+		hc.Hashes = make([]string, len(sc.Seeds))
 
 		// hashing every seed individually and concurrently using a waitGroup as a goroutine
 		for i := 0; i < len(sc.Seeds); i++ {
@@ -77,7 +78,7 @@ func (s *Server) convertFromSeedsToHashes() http.HandlerFunc {
 				go hashingWorker(sc.Seeds[index], hash)
 				fmt.Println("inne")
 				data := <-hash
-				hc.Hashes = append(hc.Hashes, data)
+				hc.Hashes[index] = data
 				//TODO append data
 			}()
 		}
