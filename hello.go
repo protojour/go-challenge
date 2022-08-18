@@ -7,6 +7,6 @@ import (
 )
 
 func main() {
-	srv := api.NewServer()
-	http.ListenAndServe(":5000", srv)
+	srv := api.NewServer()            // Initiates the server used by the client
+	http.ListenAndServe(":5000", srv) // uses an arbitrary available port and the server as arguments
 }
