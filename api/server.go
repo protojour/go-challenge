@@ -126,6 +126,7 @@ func (s *Server) ConvertToHashes() http.HandlerFunc {
 }
 
 // function used for GETTING the HashClusters that has allready been processed
+// this function is used for testing
 func (s *Server) ListHashes() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		log.SetOutput(os.Stdout) // by default logging to stdout
